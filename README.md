@@ -1,21 +1,21 @@
-# AVR In-System Programming over WiFi for ESP32
+# AVR In-System Programming over WiFi for ESP8266/ESP32
 
-This library allows an ESP32 module with the HSPI port available to become
+This library allows an ESP8266/32 module with the HSPI port available to become
 an AVR In-System Programmer.
 
 ## Hardware
 
-The ESP32 module connects to the AVR target chip via the standard 6-pin
+The ESP module connects to the AVR target chip via the standard 6-pin
 AVR "Recommended In-System Programming Interface Connector Layout" as seen
 in [AVR910](http://www.atmel.com/images/doc0943.pdf) among other places.
 
-If the AVR target is powered by a different Vcc than what powers your ESP32
+If the AVR target is powered by a different Vcc than what powers your ESP
 chip, you **must provide voltage level shifting** or some other form of buffers.
-Exposing the pins of ESP32 to anything larger than 3.6V will damage it.
+Exposing the pins of ESP to anything larger than 3.6V will damage it.
 
 Connections are as follows:
 
-ESP32 | AVR / SPI  
+ESP | AVR / SPI  
 --------|------------
 GPIO12  | MISO
 GPIO13  | MOSI
@@ -32,9 +32,9 @@ See the included example. In short:
 ```arduino
 
 // Create the programmer object
-ESP32AVRISP avrprog(PORT, RESET_PIN)
+ESP_AVRISP avrprog(PORT, RESET_PIN)
 // ... with custom SPI frequency
-ESP32AVRISP avrprog(PORT, RESET_PIN, 4e6)
+ESP_AVRISP avrprog(PORT, RESET_PIN, 4e6)
 
 // Check current connection state, but don't perform any actions
 AVRISPState_t state = avrprog.update();
@@ -53,5 +53,5 @@ the Arduino IDE:
     If you require a license, see
         http://www.opensource.org/licenses/bsd-license.php
 
-    Support for TCP on ESP32
+    Support for TCP on ESP8266/32
     Copyright (c) Kiril Zyapkov <kiril@robotev.com>.

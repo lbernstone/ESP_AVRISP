@@ -9,11 +9,15 @@ Original version:
         http://www.opensource.org/licenses/bsd-license.php
 */
 
-#ifndef _ESP32AVRISP_H
-#define _ESP32AVRISP_H
+#ifndef _ESP_AVRISP_H
+#define _ESP_AVRISP_H
 
 #include <Arduino.h>
+#ifdef ESP8266
+#include <ESP8266WiFi.h>
+#else
 #include <WiFi.h>
+#endif
 
 // uncomment if you use an n-mos to level-shift the reset line
 // #define AVRISP_ACTIVE_HIGH_RESET
@@ -46,9 +50,9 @@ typedef struct {
 } AVRISP_parameter_t;
 
 
-class ESP32AVRISP {
+class ESP_AVRISP {
 public:
-    ESP32AVRISP(uint16_t port, uint8_t reset_pin, uint32_t spi_freq=AVRISP_SPI_FREQ, bool reset_state=false, bool reset_activehigh=false);
+    ESP_AVRISP(uint16_t port, uint8_t reset_pin, uint32_t spi_freq=AVRISP_SPI_FREQ, bool reset_state=false, bool reset_activehigh=false);
 
     void begin();
 
@@ -124,4 +128,4 @@ protected:
 };
 
 
-#endif // _ESP32AVRISP_H
+#endif // _ESP_AVRISP_H

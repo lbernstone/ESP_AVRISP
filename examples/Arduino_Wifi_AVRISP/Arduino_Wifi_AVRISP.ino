@@ -1,7 +1,12 @@
 #include <SPI.h>
+#include <ESP_AVRISP.h>
+#ifdef ESP8266
+#include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
+#else
 #include <WiFi.h>
 #include <ESPmDNS.h>
-#include <ESP32AVRISP.h>
+#endif
 
 const char* host = "esp-avrisp";
 const char* ssid = "**********";
@@ -9,7 +14,7 @@ const char* pass = "**********";
 const uint16_t port = 328;
 const uint8_t reset_pin = 5;
 
-ESP32AVRISP avrprog(port, reset_pin);
+ESP_AVRISP avrprog(port, reset_pin);
 
 void setup() {
     Serial.begin(115200);

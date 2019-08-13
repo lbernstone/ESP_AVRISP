@@ -13,20 +13,26 @@ Original version:
 
 #include <Arduino.h>
 #include <SPI.h>
-#include <pgmspace.h>
-#include <WiFi.h>
-
-#include "ESP32AVRISP.h"
+#include "ESP_AVRISP.h"
 #include "command.h"
-
+#ifdef ESP8266
+#include <ESP8266WiFi.h>
+#include <pgmspace.h>
 extern "C" {
-//    #include "user_interface.h"
-#include <os.h>
+    #include "user_interface.h"
     #include "memory"
 }
-
-//#define malloc      os_malloc
-//#define free        os_free
+#ifdef malloc
+  #undef malloc
+#endif
+#define malloc      os_malloc
+#ifdef free
+  #undef free
+#endif
+#define free        os_free
+#else
+#include <WiFi.h>
+#endif
 
 // #define AVRISP_DEBUG(fmt, ...)     os_printf("[AVRP] " fmt "\r\n", ##__VA_ARGS__ )
 #define AVRISP_DEBUG(...)
@@ -40,7 +46,7 @@ extern "C" {
 
 #define beget16(addr) (*addr * 256 + *(addr+1))
 
-ESP32AVRISP::ESP32AVRISP(uint16_t port, uint8_t reset_pin, uint32_t spi_freq, bool reset_state, bool reset_activehigh):
+ESP_AVRISP::ESP_AVRISP(uint16_t port, uint8_t reset_pin, uint32_t spi_freq, bool reset_state, bool reset_activehigh):
     _reset_pin(reset_pin), _reset_state(reset_state), _spi_freq(spi_freq), _reset_activehigh(reset_activehigh),
     _server(WiFiServer(port)), _state(AVRISP_STATE_IDLE)
 {
@@ -48,23 +54,23 @@ ESP32AVRISP::ESP32AVRISP(uint16_t port, uint8_t reset_pin, uint32_t spi_freq, bo
     setReset(_reset_state);
 }
 
-void ESP32AVRISP::begin() {
+void ESP_AVRISP::begin() {
     _server.begin();
 }
 
-void ESP32AVRISP::setSpiFrequency(uint32_t freq) {
+void ESP_AVRISP::setSpiFrequency(uint32_t freq) {
     _spi_freq = freq;
     if (_state == AVRISP_STATE_ACTIVE) {
         SPI.setFrequency(freq);
     }
 }
 
-void ESP32AVRISP::setReset(bool rst) {
+void ESP_AVRISP::setReset(bool rst) {
     _reset_state = rst;
     digitalWrite(_reset_pin, _resetLevel(_reset_state));
 }
 
-AVRISPState_t ESP32AVRISP::update() {
+AVRISPState_t ESP_AVRISP::update() {
     switch (_state) {
         case AVRISP_STATE_IDLE: {
             if (_server.hasClient()) {
@@ -100,7 +106,7 @@ AVRISPState_t ESP32AVRISP::update() {
     return _state;
 }
 
-AVRISPState_t ESP32AVRISP::serve() {
+AVRISPState_t ESP_AVRISP::serve() {
     switch (update()) {
         case AVRISP_STATE_IDLE:
             // should not be called when idle, error?
@@ -119,25 +125,25 @@ AVRISPState_t ESP32AVRISP::serve() {
     return _state;
 }
 
-inline void ESP32AVRISP::_reject_incoming(void) {
+inline void ESP_AVRISP::_reject_incoming(void) {
     while (_server.hasClient()) _server.available().stop();
 }
 
-uint8_t ESP32AVRISP::getch() {
+uint8_t ESP_AVRISP::getch() {
     while (!_client.available()) yield();
     uint8_t b = (uint8_t)_client.read();
     // AVRISP_DEBUG("< %02x", b);
     return b;
 }
 
-void ESP32AVRISP::fill(int n) {
+void ESP_AVRISP::fill(int n) {
     // AVRISP_DEBUG("fill(%u)", n);
     for (int x = 0; x < n; x++) {
         buff[x] = getch();
     }
 }
 
-uint8_t ESP32AVRISP::spi_transaction(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
+uint8_t ESP_AVRISP::spi_transaction(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
     uint8_t n;
     SPI.transfer(a);
     n = SPI.transfer(b);
@@ -145,7 +151,7 @@ uint8_t ESP32AVRISP::spi_transaction(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
     return SPI.transfer(d);
 }
 
-void ESP32AVRISP::empty_reply() {
+void ESP_AVRISP::empty_reply() {
     if (Sync_CRC_EOP == getch()) {
         _client.print((char)Resp_STK_INSYNC);
         _client.print((char)Resp_STK_OK);
@@ -155,7 +161,7 @@ void ESP32AVRISP::empty_reply() {
     }
 }
 
-void ESP32AVRISP::breply(uint8_t b) {
+void ESP_AVRISP::breply(uint8_t b) {
     if (Sync_CRC_EOP == getch()) {
         uint8_t resp[3];
         resp[0] = Resp_STK_INSYNC;
@@ -169,7 +175,7 @@ void ESP32AVRISP::breply(uint8_t b) {
 
 }
 
-void ESP32AVRISP::get_parameter(uint8_t c) {
+void ESP_AVRISP::get_parameter(uint8_t c) {
     switch (c) {
     case 0x80:
         breply(AVRISP_HWVER);
@@ -188,7 +194,7 @@ void ESP32AVRISP::get_parameter(uint8_t c) {
     }
 }
 
-void ESP32AVRISP::set_parameters() {
+void ESP_AVRISP::set_parameters() {
     // call this after reading paramter packet into buff[]
     param.devicecode = buff[0];
     param.revision   = buff[1];
@@ -212,7 +218,7 @@ void ESP32AVRISP::set_parameters() {
                     + buff[19];
 }
 
-void ESP32AVRISP::start_pmode() {
+void ESP_AVRISP::start_pmode() {
 #ifdef SPI_PINS
     SPI.begin(SPI_PINS);
 #else
@@ -232,13 +238,13 @@ void ESP32AVRISP::start_pmode() {
     pmode = 1;
 }
 
-void ESP32AVRISP::end_pmode() {
+void ESP_AVRISP::end_pmode() {
     SPI.end();
     setReset(_reset_state);
     pmode = 0;
 }
 
-void ESP32AVRISP::universal() {
+void ESP_AVRISP::universal() {
     int w;
     uint8_t ch;
 
@@ -247,20 +253,20 @@ void ESP32AVRISP::universal() {
     breply(ch);
 }
 
-void ESP32AVRISP::flash(uint8_t hilo, int addr, uint8_t data) {
+void ESP_AVRISP::flash(uint8_t hilo, int addr, uint8_t data) {
     spi_transaction(0x40 + 8 * hilo,
                     addr >> 8 & 0xFF,
                     addr & 0xFF,
                     data);
 }
 
-void ESP32AVRISP::commit(int addr) {
+void ESP_AVRISP::commit(int addr) {
     spi_transaction(0x4C, (addr >> 8) & 0xFF, addr & 0xFF, 0);
     delay(AVRISP_PTIME);
 }
 
 //#define _addr_page(x) (here & 0xFFFFE0)
-int ESP32AVRISP::addr_page(int addr) {
+int ESP_AVRISP::addr_page(int addr) {
     if (param.pagesize == 32)  return addr & 0xFFFFFFF0;
     if (param.pagesize == 64)  return addr & 0xFFFFFFE0;
     if (param.pagesize == 128) return addr & 0xFFFFFFC0;
@@ -270,7 +276,7 @@ int ESP32AVRISP::addr_page(int addr) {
 }
 
 
-void ESP32AVRISP::write_flash(int length) {
+void ESP_AVRISP::write_flash(int length) {
     uint32_t started = millis();
 
     fill(length);
@@ -284,7 +290,7 @@ void ESP32AVRISP::write_flash(int length) {
     }
 }
 
-uint8_t ESP32AVRISP::write_flash_pages(int length) {
+uint8_t ESP_AVRISP::write_flash_pages(int length) {
     int x = 0;
     int page = addr_page(here);
     while (x < length) {
@@ -301,7 +307,7 @@ uint8_t ESP32AVRISP::write_flash_pages(int length) {
     return Resp_STK_OK;
 }
 
-uint8_t ESP32AVRISP::write_eeprom(int length) {
+uint8_t ESP_AVRISP::write_eeprom(int length) {
     // here is a word address, get the byte address
     int start = here * 2;
     int remaining = length;
@@ -318,7 +324,7 @@ uint8_t ESP32AVRISP::write_eeprom(int length) {
     return Resp_STK_OK;
 }
 // write (length) bytes, (start) is a byte address
-uint8_t ESP32AVRISP::write_eeprom_chunk(int start, int length) {
+uint8_t ESP_AVRISP::write_eeprom_chunk(int start, int length) {
     // this writes byte-by-byte,
     // page writing may be faster (4 bytes at a time)
     fill(length);
@@ -332,7 +338,7 @@ uint8_t ESP32AVRISP::write_eeprom_chunk(int start, int length) {
     return Resp_STK_OK;
 }
 
-void ESP32AVRISP::program_page() {
+void ESP_AVRISP::program_page() {
     char result = (char) Resp_STK_FAILED;
     int length = 256 * getch();
     length += getch();
@@ -360,14 +366,14 @@ void ESP32AVRISP::program_page() {
 
 }
 
-uint8_t ESP32AVRISP::flash_read(uint8_t hilo, int addr) {
+uint8_t ESP_AVRISP::flash_read(uint8_t hilo, int addr) {
     return spi_transaction(0x20 + hilo * 8,
                            (addr >> 8) & 0xFF,
                            addr & 0xFF,
                            0);
 }
 
-void ESP32AVRISP::flash_read_page(int length) {
+void ESP_AVRISP::flash_read_page(int length) {
     uint8_t *data = (uint8_t *) malloc(length + 1);
     for (int x = 0; x < length; x += 2) {
         *(data + x) = flash_read(LOW, here);
@@ -380,7 +386,7 @@ void ESP32AVRISP::flash_read_page(int length) {
     return;
 }
 
-void ESP32AVRISP::eeprom_read_page(int length) {
+void ESP_AVRISP::eeprom_read_page(int length) {
     // here again we have a word address
     uint8_t *data = (uint8_t *) malloc(length + 1);
     int start = here * 2;
@@ -395,7 +401,7 @@ void ESP32AVRISP::eeprom_read_page(int length) {
     return;
 }
 
-void ESP32AVRISP::read_page() {
+void ESP_AVRISP::read_page() {
     char result = (char)Resp_STK_FAILED;
     int length = 256 * getch();
     length += getch();
@@ -411,7 +417,7 @@ void ESP32AVRISP::read_page() {
     return;
 }
 
-void ESP32AVRISP::read_signature() {
+void ESP_AVRISP::read_signature() {
     if (Sync_CRC_EOP != getch()) {
         error++;
         _client.print((char) Resp_STK_NOSYNC);
@@ -430,7 +436,7 @@ void ESP32AVRISP::read_signature() {
 
 // It seems ArduinoISP is based on the original STK500 (not v2)
 // but implements only a subset of the commands.
-int ESP32AVRISP::avrisp() {
+int ESP_AVRISP::avrisp() {
     uint8_t data, low, high;
     uint8_t ch = getch();
     // AVRISP_DEBUG("CMD 0x%02x", ch);
